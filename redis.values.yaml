@@ -1,0 +1,11 @@
+replica:
+  replicaCount: 1
+
+architecture: standalone
+
+auth:
+  enabled: false
+  sentinel: false
+
+master:
+  disableCommands: []
