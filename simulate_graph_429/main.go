@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 )
@@ -11,13 +12,17 @@ const (
 	bearerToken = "Bearer ..." // Replace with your actual token
 )
 
+const (
+	numRequests = 20
+)
+
 func main() {
 	var wg sync.WaitGroup
-	responseChan := make(chan string, 100)
+	responseChan := make(chan string, numRequests)
 
 	client := &http.Client{}
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < numRequests; i++ {
 		wg.Add(1)
 		go func(requestNumber int) {
 			defer wg.Done()
@@ -37,8 +42,17 @@ func main() {
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusTooManyRequests {
-				retryAfter := resp.Header.Get("Retry-After")
-				responseChan <- fmt.Sprintf("Request %d: 429 Too Many Requests. Retry-After: %s", requestNumber, retryAfter)
+				headers := ""
+				for k, v := range resp.Header {
+					headers += fmt.Sprintf("%s: %v\n", k, v)
+				}
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					responseChan <- fmt.Sprintf("Request %d: Failed to read response body: %v", requestNumber, err)
+					return
+				}
+				responseStr := string(body)
+				responseChan <- fmt.Sprintf("Request %d: 429 Too Many Requests. Headers: %s\nResponse: %s", requestNumber, headers, responseStr)
 			} else {
 				responseChan <- fmt.Sprintf("Request %d: Status %d.", requestNumber, resp.StatusCode)
 			}
