@@ -8,12 +8,17 @@ import (
 )
 
 const (
-	url         = "https://graph.microsoft.com/v1.0/me/messages?%24top=2&%24select=id"
-	bearerToken = "Bearer ..." // Replace with your actual token
+	// url         = "https://graph.microsoft.com/v1.0/me/messages?%24top=2&%24select=id"
+	// url         = "https://www.googleapis.com/gmail/v1/users/me/messages/1947644f97a96c01"
+	url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=2025-01-17T22:17:59Z&timeMax=2025-02-17T22:17:59Z&eventTypes=default&maxResults=5&orderBy=startTime&singleEvents=true"
 )
 
+var headers = map[string]string{
+	"Authorization": "Bearer ...", // Replace with your actual token
+}
+
 const (
-	numRequests = 20
+	numRequests = 50
 )
 
 func main() {
@@ -32,7 +37,9 @@ func main() {
 				responseChan <- fmt.Sprintf("Request %d: Failed to create request: %v", requestNumber, err)
 				return
 			}
-			req.Header.Set("Authorization", bearerToken)
+			for k, v := range headers {
+				req.Header.Set(k, v)
+			}
 
 			resp, err := client.Do(req)
 			if err != nil {
@@ -41,7 +48,9 @@ func main() {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode == http.StatusTooManyRequests {
+			if resp.StatusCode == http.StatusOK {
+				responseChan <- fmt.Sprintf("Request %d: Status %d.", requestNumber, resp.StatusCode)
+			} else {
 				headers := ""
 				for k, v := range resp.Header {
 					headers += fmt.Sprintf("%s: %v\n", k, v)
@@ -53,8 +62,6 @@ func main() {
 				}
 				responseStr := string(body)
 				responseChan <- fmt.Sprintf("Request %d: 429 Too Many Requests. Headers: %s\nResponse: %s", requestNumber, headers, responseStr)
-			} else {
-				responseChan <- fmt.Sprintf("Request %d: Status %d.", requestNumber, resp.StatusCode)
 			}
 		}(i)
 	}
